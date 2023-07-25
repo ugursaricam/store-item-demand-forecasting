@@ -51,6 +51,7 @@ def create_date_features(dataframe):
 
 df = create_date_features(df)
 
+df.groupby(["store", "item", "month"]).agg({"sales":["mean", "median", "std", "sum"]})
 
 
 
