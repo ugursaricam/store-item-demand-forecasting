@@ -53,9 +53,9 @@ df = create_date_features(df)
 
 df.groupby(["store", "item", "month"]).agg({"sales":["mean", "median", "std", "sum"]})
 
-                  sales
-                   mean median    std       sum
-store item month
+#                   sales
+#                    mean median    std       sum
+# store item month
 # 1     1    1     13.710 13.000  4.397  2125.000
 #            2     14.631 14.000  4.668  2063.000
 #            3     17.600 17.000  4.545  2728.000
@@ -69,8 +69,16 @@ store item month
 #            12    56.284 56.000 11.783  8724.000
 # [6000 rows x 4 columns]
 
+df.sort_values(by=['store', 'item', 'date'], axis=0, inplace=True)
 
+df.head()
 
+#         date  store  item  sales  id  month  day_of_month  day_of_year  week_of_year  day_of_week  year  is_wknd  is_month_start  is_month_end
+# 0 2013-01-01      1     1 13.000 NaN      1             1            1             1            1  2013        0               1             0
+# 1 2013-01-02      1     1 11.000 NaN      1             2            2             1            2  2013        0               0             0
+# 2 2013-01-03      1     1 14.000 NaN      1             3            3             1            3  2013        0               0             0
+# 3 2013-01-04      1     1 13.000 NaN      1             4            4             1            4  2013        1               0             0
+# 4 2013-01-05      1     1 10.000 NaN      1             5            5             1            5  2013        1               0             0
 
 
 
