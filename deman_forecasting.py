@@ -80,10 +80,26 @@ df.head()
 # 3 2013-01-04      1     1 13.000 NaN      1             4            4             1            4  2013        1               0             0
 # 4 2013-01-05      1     1 10.000 NaN      1             5            5             1            5  2013        1               0             0
 
+pd.DataFrame({"sales": df["sales"].values[0:10],
+              "lag1": df["sales"].shift(1).values[0:10],
+              "lag2": df["sales"].shift(2).values[0:10],
+              "lag3": df["sales"].shift(3).values[0:10],
+              "lag4": df["sales"].shift(4).values[0:10]})
 
+df.groupby(["store", "item"])['sales'].head()
 
+df.groupby(["store", "item"])['sales'].transform(lambda x: x.shift(1))
 
+def random_noise(dataframe):
+    return np.random.normal(scale=1.6, size=(len(dataframe),))
 
+def lag_features(dataframe, lags):
+    for lag in lags:
+        dataframe['sales_lag_' + str(lag)] = dataframe.groupby(["store", "item"])['sales'].transform(
+            lambda x: x.shift(lag)) + random_noise(dataframe)
+    return dataframe
+
+df = lag_features(df, [91, 98, 105, 112, 119, 126, 182, 364, 546, 728])
 
 
 
