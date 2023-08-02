@@ -35,7 +35,16 @@ df[["item"]].nunique() # 50
 
 df.groupby(["store"])["item"].nunique()
 
-df.groupby(["store", "item"]).agg({"sales":["mean", "median", "std", "sum"]})
+df.groupby(["store", "item"]).agg({"sales":[ "sum", "mean", "median", "std"]})
+
+#                 sales
+#                   sum   mean median    std
+# store item
+# 1     1     36468.000 19.972 19.000  6.741
+#       2     97050.000 53.149 52.000 15.006
+#       3     60638.000 33.208 33.000 10.073
+#       4     36440.000 19.956 20.000  6.641
+#       5     30335.000 16.613 16.000  5.672
 
 def create_date_features(dataframe):
     dataframe['month'] = dataframe.date.dt.month
@@ -51,47 +60,32 @@ def create_date_features(dataframe):
 
 df = create_date_features(df)
 
-df.groupby(["store", "item", "month"]).agg({"sales":["mean", "median", "std", "sum"]})
+df.groupby(["store", "item", "month"]).agg({"sales":[ "sum", "mean", "median", "std"]})
 
-#                   sales
-#                    mean median    std       sum
+#                      sales
+#                        sum   mean median    std
 # store item month
-# 1     1    1     13.710 13.000  4.397  2125.000
-#            2     14.631 14.000  4.668  2063.000
-#            3     17.600 17.000  4.545  2728.000
-#            4     20.787 20.000  4.894  3118.000
-#            5     22.245 22.000  6.565  3448.000
-#                  ...    ...    ...       ...
-# 10    50   8     84.568 85.000 15.677 13108.000
-#            9     78.873 79.000 15.207 11831.000
-#            10    73.045 72.000 14.209 11322.000
-#            11    76.993 77.000 16.254 11549.000
-#            12    56.284 56.000 11.783  8724.000
-# [6000 rows x 4 columns]
-
-df.sort_values(by=['store', 'item', 'date'], axis=0, inplace=True)
-
-df.head()
-
-#         date  store  item  sales  id  month  day_of_month  day_of_year  week_of_year  day_of_week  year  is_wknd  is_month_start  is_month_end
-# 0 2013-01-01      1     1 13.000 NaN      1             1            1             1            1  2013        0               1             0
-# 1 2013-01-02      1     1 11.000 NaN      1             2            2             1            2  2013        0               0             0
-# 2 2013-01-03      1     1 14.000 NaN      1             3            3             1            3  2013        0               0             0
-# 3 2013-01-04      1     1 13.000 NaN      1             4            4             1            4  2013        1               0             0
-# 4 2013-01-05      1     1 10.000 NaN      1             5            5             1            5  2013        1               0             0
-
-pd.DataFrame({"sales": df["sales"].values[0:10],
-              "lag1": df["sales"].shift(1).values[0:10],
-              "lag2": df["sales"].shift(2).values[0:10],
-              "lag3": df["sales"].shift(3).values[0:10],
-              "lag4": df["sales"].shift(4).values[0:10]})
-
-df.groupby(["store", "item"])['sales'].head()
-
-df.groupby(["store", "item"])['sales'].transform(lambda x: x.shift(1))
+# 1     1    1      2125.000 13.710 13.000  4.397
+#            2      2063.000 14.631 14.000  4.668
+#            3      2728.000 17.600 17.000  4.545
+#            4      3118.000 20.787 20.000  4.894
+#            5      3448.000 22.245 22.000  6.565
 
 def random_noise(dataframe):
     return np.random.normal(scale=1.6, size=(len(dataframe),))
+
+df.sort_values(by=['store', 'item', 'date'], axis=0, inplace=True)
+
+# pd.DataFrame({"sales": df["sales"].values[0:10],
+#               "lag1": df["sales"].shift(1).values[0:10],
+#               "lag2": df["sales"].shift(2).values[0:10],
+#               "lag3": df["sales"].shift(3).values[0:10],
+#               "lag4": df["sales"].shift(4).values[0:10]})
+#
+# df.groupby(["store", "item"])['sales'].head()
+#
+# df.groupby(["store", "item"])['sales'].transform(lambda x: x.shift(1))
+
 
 def lag_features(dataframe, lags):
     for lag in lags:
