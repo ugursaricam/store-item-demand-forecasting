@@ -95,9 +95,26 @@ def lag_features(dataframe, lags):
 
 df = lag_features(df, [91, 98, 105, 112, 119, 126, 182, 364, 546, 728])
 
+# pd.DataFrame({"sales": df["sales"].values[0:10],
+#               "roll2": df["sales"].rolling(window=2).mean().values[0:10],
+#               "roll3": df["sales"].rolling(window=3).mean().values[0:10],
+#               "roll5": df["sales"].rolling(window=5).mean().values[0:10]})
+#
+# pd.DataFrame({"sales": df["sales"].values[0:10],
+#               "roll2": df["sales"].shift(1).rolling(window=2).mean().values[0:10],
+#               "roll3": df["sales"].shift(1).rolling(window=3).mean().values[0:10],
+#               "roll5": df["sales"].shift(1).rolling(window=5).mean().values[0:10]})
+
+def roll_mean_features(dataframe, windows):
+    for window in windows:
+        dataframe['sales_roll_mean_' + str(window)] = dataframe.groupby(["store", "item"])['sales']. \
+                                                          transform(
+            lambda x: x.shift(1).rolling(window=window, min_periods=10, win_type="triang").mean()) + random_noise(
+            dataframe)
+    return dataframe
 
 
-
+df = roll_mean_features(df, [365, 546])
 
 
 
