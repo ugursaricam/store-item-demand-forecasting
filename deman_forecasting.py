@@ -161,8 +161,160 @@ df = ewm_features(df, alphas, lags)
 # 44998 2018-03-30     10    50    NaN 44998.000      3            30           89            13            4  2018        1               0             0        75.856        74.470         74.888         66.025         66.564         81.557         88.408         69.357         79.726         85.779               86.452               82.876                      73.257                      74.370                       71.987                       66.936                       99.166                      100.047                       68.218                       79.954                       82.583                     72.519                     73.683                      71.949                      66.847                      99.262                     101.084                      68.377                      80.823                      82.133                     71.008                     72.151                      71.784                      66.607                      99.212                     103.110                      68.551                      82.315                      81.135                     69.403                     70.453                      71.481                      66.299                      98.791                     105.022                      68.602                      83.486                      80.000                     66.039                     66.956                      70.379                      65.542                      96.604                     108.005                      68.717                      84.936                      77.367
 # 44999 2018-03-31     10    50    NaN 44999.000      3            31           90            13            5  2018        1               0             1        62.739        70.338         52.312         70.670         49.986         76.663        102.426        102.173         96.724         82.098               87.906               86.078                      62.563                      70.219                       52.999                       68.897                       72.408                       98.102                       68.961                       96.148                       82.029                     63.052                     70.368                      53.995                      68.785                      73.826                      98.308                      68.938                      95.382                      82.013                     63.802                     70.430                      55.957                      68.521                      76.642                      99.022                      68.910                      94.063                      81.827                     64.221                     70.136                      57.844                      68.190                      79.337                     100.107                      68.881                      92.946                      81.400                     64.019                     68.478                      61.190                      67.271                      83.802                     103.002                      68.858                      90.968                      79.683
 
+df = pd.get_dummies(df, columns=['store', 'item', 'day_of_week', 'month'])
+
+df.shape # (958000, 146)
+
+df['sales'] = np.log1p(df["sales"].values)
+
+########################
+# Custom Cost Function
+########################
+
+# MAE, MSE, RMSE, SSE
+
+# MAE: mean absolute error
+# MAPE: mean absolute percentage error
+# SMAPE: Symmetric mean absolute percentage error (adjusted MAPE)
+
+def smape(preds, target):
+    n = len(preds)
+    masked_arr = ~((preds == 0) & (target == 0))
+    preds, target = preds[masked_arr], target[masked_arr]
+    num = np.abs(preds - target)
+    denom = np.abs(preds) + np.abs(target)
+    smape_val = (200 * np.sum(num / denom)) / n
+    return smape_val
+
+def lgbm_smape(preds, train_data):
+    labels = train_data.get_label()
+    smape_val = smape(np.expm1(preds), np.expm1(labels))
+    return 'SMAPE', smape_val, False
+
+train # from 2013-01-01 to 2017-12-31
+
+test # from 2018-01-01 to 2018-03-31
+
+train = df.loc[(df["date"] < "2017-01-01"), :]
+val = df.loc[(df["date"] >= "2017-01-01") & (df["date"] < "2017-04-01"), :]
+
+cols = [col for col in train.columns if col not in ['date', 'id', "sales", "year"]]
+
+y_train = train['sales']
+X_train = train[cols]
+
+y_val = val['sales']
+X_val = val[cols]
+
+y_train.shape, X_train.shape, y_val.shape, X_val.shape
+# ((730500,), (730500, 142), (45000,), (45000, 142))
+
+# LightGBM parameters
+lgb_params = {'num_leaves': 10,
+              'learning_rate': 0.02,
+              'feature_fraction': 0.8,
+              'max_depth': 5,
+              'verbose': 0,
+              'num_boost_round': 10000,
+              'early_stopping_rounds': 200,
+              'nthread': -1}
+
+lgbtrain = lgb.Dataset(data=X_train, label=y_train, feature_name=cols)
+
+lgbval = lgb.Dataset(data=X_val, label=y_val, reference=lgbtrain, feature_name=cols)
+
+model = lgb.train(lgb_params, lgbtrain,
+                  valid_sets=[lgbtrain, lgbval],
+                  num_boost_round=lgb_params['num_boost_round'],
+                  early_stopping_rounds=lgb_params['early_stopping_rounds'],
+                  feval=lgbm_smape,
+                  verbose_eval=100)
+
+# [10000]	training's l2: 0.0263869	training's SMAPE: 12.7644	valid_1's l2: 0.0300784	valid_1's SMAPE: 13.5178
+
+y_pred_val = model.predict(X_val, num_iteration=model.best_iteration)
+
+smape(np.expm1(y_pred_val), np.expm1(y_val)) # 13.517766454941283
+
+def plot_lgb_importances(model, plot=False, num=10):
+    gain = model.feature_importance('gain')
+    feat_imp = pd.DataFrame({'feature': model.feature_name(),
+                             'split': model.feature_importance('split'),
+                             'gain': 100 * gain / gain.sum()}).sort_values('gain', ascending=False)
+    if plot:
+        plt.figure(figsize=(10, 10))
+        sns.set(font_scale=1)
+        sns.barplot(x="gain", y="feature", data=feat_imp[0:25])
+        plt.title('feature')
+        plt.tight_layout()
+        plt.show(block=True)
+    else:
+        print(feat_imp.head(num))
+    return feat_imp
+
+plot_lgb_importances(model, num=10, plot=True)
+
+#                         feature  split   gain
+# 17          sales_roll_mean_546   7102 54.136
+# 13                sales_lag_364   6042 13.095
+# 16          sales_roll_mean_365   5210  9.862
+# 60   sales_ewm_alpha_05_lag_365   1787  4.851
+# 18   sales_ewm_alpha_095_lag_91   1099  2.214
+
+# importance_zero = feat_imp[feat_imp["gain"] == 0]["feature"].values
+#
+# imp_feats = [col for col in cols if col not in importance_zero]
+# len(imp_feats) -- imp_feats instead of cols
+
+train = df.loc[~df["sales"].isna()]
+Y_train = train['sales']
+X_train = train[cols]
+
+test = df.loc[df.sales.isna()]
+X_test = test[cols]
 
 
+lgb_params = {'num_leaves': 10,
+              'learning_rate': 0.02,
+              'feature_fraction': 0.8,
+              'max_depth': 5,
+              'verbose': 0,
+              'nthread': -1,
+              "num_boost_round": model.best_iteration}
+
+lgbtrain_all = lgb.Dataset(data=X_train, label=Y_train, feature_name=cols)
+
+final_model = lgb.train(lgb_params, lgbtrain_all, num_boost_round=model.best_iteration)
+
+test_preds = final_model.predict(X_test, num_iteration=model.best_iteration)
+
+
+submission_df = test.loc[:, ["id", "sales"]]
+submission_df['sales'] = np.expm1(test_preds)
+
+submission_df.info()
+
+#  #   Column  Non-Null Count  Dtype
+# ---  ------  --------------  -----
+#  0   id      45000 non-null  float64
+#  1   sales   45000 non-null  float64
+
+submission_df['id'] = submission_df["id"].astype("int64")
+
+#           id  sales
+# 0          0 12.156
+# 1          1 14.304
+# 2          2 14.050
+# 3          3 14.357
+# 4          4 16.202
+#       ...    ...
+# 44995  44995 71.229
+# 44996  44996 75.447
+# 44997  44997 79.067
+# 44998  44998 82.133
+# 44999  44999 85.191
+
+submission_df.to_csv("submission_demand.csv", index=False) # Score: 12.88380
 
 
 
