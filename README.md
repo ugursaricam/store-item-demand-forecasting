@@ -25,7 +25,6 @@ To run the project on your local machine, follow these steps:
 
 1. Clone the repository:
 git clone https://github.com/ugursaricam/store-item-demand-forecasting.git
-cd store-item-demand-forecasting
 
 2. Install the required Python packages:
 pip install -r requirements.txt
